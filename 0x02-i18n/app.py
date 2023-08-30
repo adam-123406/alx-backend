@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """ Module for trying out Babel i18n """
-from flask_babel import Babel, _
+from datetime import datetime
+from flask_babel import Babel, _, format_datetime
+import flask_babel
 from flask import Flask, render_template, request, g
+import pytz
 from typing import Union
 
 app = Flask(__name__, template_folder='templates')
@@ -51,7 +54,11 @@ def before_request():
 @app.route('/', methods=['GET'], strict_slashes=False)
 def hello_world() -> str:
     """Renders a Basic Template for Babel Implementation"""
-    return render_template("5-index.html")
+    timezone = get_timezone()
+    tz = pytz.timezone(timezone)
+    current_time = datetime.now(tz)
+    current_time = format_datetime(datetime=current_time)
+    return render_template("index.html", current_time=current_time)
 
 
 @babel.localeselector
@@ -60,7 +67,42 @@ def get_locale() -> str:
     locale = request.args.get("locale")
     if locale and locale in app.config['LANGUAGES']:
         return locale
+
+    if g.user:
+        locale = g.user.get("locale")
+        if locale and locale in app.config['LANGUAGES']:
+            return locale
+
+    locale = request.headers.get('locale')
+    if locale and locale in app.config['LANGUAGES']:
+        return locale
+
     return request.accept_languages.best_match(app.config['LANGUAGES'])
+
+
+@babel.timezoneselector
+def get_timezone() -> str:
+    """
+    1 Find timezone parameter in URL parameters
+    2 Find time zone from user settings
+    3 Default to UTC
+    """
+    try:
+        if request.args.get("timezone"):
+            timezone = request.args.get("timezone")
+            tz = pytz.timezone(timezone)
+
+        elif g.user and g.user.get("timezone"):
+            timezone = g.user.get("timezone")
+            tz = pytz.timezone(timezone)
+        else:
+            timezone = app.config["BABEL_DEFAULT_TIMEZONE"]
+            tz = pytz.timezone(timezone)
+
+    except pytz.exceptions.UnknownTimeZoneError:
+        timezone = "UTC"
+
+    return timezone
 
 
 if __name__ == "__main__":
