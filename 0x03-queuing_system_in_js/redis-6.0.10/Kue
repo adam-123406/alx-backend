@@ -1,0 +1,4 @@
+{
+  phoneNumber: string,
+  message: string,
+}
